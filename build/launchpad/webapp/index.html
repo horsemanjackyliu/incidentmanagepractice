@@ -2,8 +2,8 @@
 <html>
 
 <head>
-    <title> Project Preview </title>
-    <script src="https://ui5.sap.com/1.129.2/resources/sap-ui-core.js" 
+    <title> Application Overview </title>
+    <script src="https://ui5.sap.com/1.130.0/resources/sap-ui-core.js" 
             id="sap-ui-bootstrap"
             data-sap-ui-theme="sap_horizon"
             data-sap-ui-bindingSyntax="complex" 
@@ -27,7 +27,7 @@
                     return Controller.extend("PreviewController", {
                         onInit: function () {
 
-                            const data = {"Services":[{"ServiceName":"Processor","DetailsURL":"./service/Processor/","Metadata":"./service/Processor/$metadata","Entities":[{"Name":"Incidents","URL":"./service/Processor/Incidents","FioriURL":"$fiori-preview/Processor/Incidents#preview-app"},{"Name":"Customers","URL":"./service/Processor/Customers","FioriURL":"$fiori-preview/Processor/Customers#preview-app"},{"Name":"Conversations","URL":"./service/Processor/Conversations","FioriURL":"$fiori-preview/Processor/Conversations#preview-app"},{"Name":"Urgency","URL":"./service/Processor/Urgency","FioriURL":"$fiori-preview/Processor/Urgency#preview-app"}],"EntitiesCount":4}]}
+                            const data = {"Services":[{"ServiceName":"Processor","DetailsURL":"./service/Processor/","Metadata":"./service/Processor/$metadata","Entities":[{"Name":"Incidents","URL":"./service/Processor/Incidents","FioriURL":""},{"Name":"Customers","URL":"./service/Processor/Customers","FioriURL":""},{"Name":"Conversations","URL":"./service/Processor/Conversations","FioriURL":""},{"Name":"Urgency","URL":"./service/Processor/Urgency","FioriURL":""}],"EntitiesCount":4}]}
                             this.getView().setModel(new JSONModel(data));
                         }
                     });

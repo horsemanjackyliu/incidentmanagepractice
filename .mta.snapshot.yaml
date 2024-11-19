@@ -1,0 +1,221 @@
+_schema-version: '3.1'
+ID: incidentmanagement_jackyliu
+version: 1.0.0
+description: A simple CAP project.
+parameters:
+  deploy_mode: html5-repo
+  enable-parallel-deployments: true
+build-parameters:
+  before-all:
+    - builder: custom
+      commands:
+        - rm -rf build/dist
+        - mkdir -p build/dist
+        - rm -rf build/ui-deployer
+        - mkdir -p build/ui-deployer
+    - builder: custom
+      commands:
+        - npm install --production
+        - >-
+          bash -c "cds -v | grep 'cds-dk' || npm i --production --no-save
+          @sap/cds-dk @sap/mdk-tools"
+        - bash -c "export PATH=$PATH:$(pwd)/node_modules/.bin"
+        - cds build --production
+  after-all:
+    - builder: custom
+      commands:
+        - npm install
+modules:
+  - name: incidentmanagement_jackyliu-incidentmanagementjackyliu.incidents
+    type: html5
+    path: app/incidentmanagement_jackyliu.incidents
+    build-parameters:
+      builder: custom
+      commands:
+        - rm -rf dist-zip dist
+        - npm install
+        - >-
+          npx -p @ui5/cli@^3.0.0 ui5 build --dest dist
+          --include-task=generateCachebusterInfo
+        - mkdir dist-zip
+        - >-
+          bash -c "cd dist && npx bestzip
+          ../dist-zip/incidentmanagementjackyliuincidents.zip *"
+      _artifactName: incidentmanagementjackyliuincidents.zip
+      supported-platforms: []
+      build-result: dist-zip
+  - name: incidentmanagement_jackyliu-db-deployer
+    type: hdb
+    path: gen/db
+    parameters:
+      buildpack: nodejs_buildpack
+    build-parameters:
+      builder: npm
+      ignore:
+        - node_modules
+        - package-lock.json
+    requires:
+      - name: incidentmanagement_jackyliu-service-uaa
+      - name: incidentmanagement_jackyliu-service-db
+  - name: incidentmanagement_jackyliu-srv
+    type: nodejs
+    path: gen/srv
+    parameters:
+      memory: 256MB
+    provides:
+      - name: srv-api
+        properties:
+          srv-url: ${default-url}
+    build-parameters:
+      builder: npm
+      ignore:
+        - node_modules
+        - package-lock.json
+    requires:
+      - name: incidentmanagement_jackyliu-service-uaa
+      - name: incidentmanagement_jackyliu-service-db
+      - name: incidentmanagement_jackyliu-service-destination
+      - name: incidentmanagement_jackyliu-service-metadata
+      - name: incidentmanagement_jackyliu-service-connectivity
+      - name: incidentmanagement_jackyliu-service-logs
+  - name: incidentmanagement_jackyliu-aux-destinations
+    type: com.sap.application.content
+    parameters:
+      content:
+        subaccount:
+          existing_destinations_policy: update
+          destinations:
+            - Authentication: OAuth2UserTokenExchange
+              Name: incidentmanagement_jackyliu-service-uaa
+              ServiceInstanceName: incidentmanagement_jackyliu-uaa
+              ServiceKeyName: incidentmanagement_jackyliu-uaa-key
+              sap.cloud.service: lcap.incidentmanagement_jackyliu
+            - Authentication: OAuth2UserTokenExchange
+              Name: incidentmanagement_jackyliu-app-srv
+              TokenServiceInstanceName: incidentmanagement_jackyliu-uaa
+              TokenServiceKeyName: incidentmanagement_jackyliu-uaa-key
+              URL: ~{srv-api/srv-url}
+              sap.cloud.service: lcap.incidentmanagement_jackyliu
+            - Name: incidentmanagement_jackyliu-service-html5-apps-repo-host
+              ServiceInstanceName: incidentmanagement_jackyliu-html5-apps-repo-host
+              ServiceKeyName: incidentmanagement_jackyliu-html5-apps-repo-host-key
+              sap.cloud.service: lcap.incidentmanagement_jackyliu
+            - Authentication: OAuth2UserTokenExchange
+              Name: incidentmanagement_jackyliu-Processor
+              TokenServiceInstanceName: incidentmanagement_jackyliu-uaa
+              TokenServiceKeyName: incidentmanagement_jackyliu-uaa-key
+              URL: ~{srv-api/srv-url}/service/Processor
+              sap.cloud.service: lcap.incidentmanagement_jackyliu
+              sap.applicationdevelopment.actions.enabled: false
+              sap.build.usage: CAP
+              sap.processautomation.enabled: false
+              HTML5.DynamicDestination: false
+              WebIDEEnabled: false
+              MobileEnabled: false
+              AppgyverEnabled: false
+    build-parameters:
+      no-source: true
+    requires:
+      - name: incidentmanagement_jackyliu-service-uaa
+        parameters:
+          service-key:
+            name: incidentmanagement_jackyliu-uaa-key
+      - name: srv-api
+      - name: incidentmanagement_jackyliu-service-html5-apps-repo-host
+        parameters:
+          service-key:
+            name: incidentmanagement_jackyliu-html5-apps-repo-host-key
+      - name: incidentmanagement_jackyliu-service-destination
+        parameters:
+          content-target: true
+  - name: incidentmanagement_jackyliu-launchpad
+    type: html5
+    path: build/launchpad
+    build-parameters:
+      builder: custom
+      commands:
+        - npm install
+        - >-
+          npx -p @ui5/cli@^3.0.0 ui5 build --dest dist
+          --include-task=generateCachebusterInfo
+        - bash -c "cd dist && npx bestzip ../../../build/dist/launchpad.zip *"
+        - rm -rf dist
+      _artifactName: launchpad.zip
+      supported-platforms: []
+      build-result: ../../build/dist
+  - name: incidentmanagement_jackyliu-aux-ui-deployer
+    type: com.sap.application.content
+    path: build/ui-deployer
+    build-parameters:
+      build-result: resources
+      requires:
+        - name: incidentmanagement_jackyliu-incidentmanagementjackyliu.incidents
+          artifacts:
+            - incidentmanagementjackyliuincidents.zip
+          target-path: resources
+        - name: incidentmanagement_jackyliu-launchpad
+          artifacts:
+            - launchpad.zip
+          target-path: resources
+    requires:
+      - name: incidentmanagement_jackyliu-service-html5-apps-repo-host
+        parameters:
+          content-target: true
+resources:
+  - type: org.cloudfoundry.managed-service
+    name: incidentmanagement_jackyliu-service-uaa
+    parameters:
+      service: xsuaa
+      service-plan: application
+      service-name: incidentmanagement_jackyliu-uaa
+      path: xs-security.json
+      config:
+        oauth2-configuration:
+          redirect-uris:
+            - https://*.${default-domain}/login/*
+          credential-types:
+            - binding-secret
+            - x509
+        xsappname: incidentmanagement_jackyliu-${space}
+        role-collections: []
+  - type: org.cloudfoundry.managed-service
+    name: incidentmanagement_jackyliu-service-db
+    parameters:
+      service: hana
+      service-plan: hdi-shared
+      service-name: incidentmanagement_jackyliu-db
+  - type: org.cloudfoundry.managed-service
+    name: incidentmanagement_jackyliu-service-destination
+    parameters:
+      service: destination
+      service-plan: lite
+      service-name: incidentmanagement_jackyliu-destination
+      config:
+        HTML5Runtime_enabled: true
+        version: 1.0.0
+  - type: org.cloudfoundry.user-provided-service
+    name: incidentmanagement_jackyliu-service-metadata
+    parameters:
+      service: metadata
+      service-plan: standard
+      service-name: incidentmanagement_jackyliu-metadata
+      config:
+        default-domain: ${default-domain}
+  - type: org.cloudfoundry.managed-service
+    name: incidentmanagement_jackyliu-service-connectivity
+    parameters:
+      service: connectivity
+      service-plan: lite
+      service-name: incidentmanagement_jackyliu-connectivity
+  - type: org.cloudfoundry.managed-service
+    name: incidentmanagement_jackyliu-service-logs
+    parameters:
+      service: application-logs
+      service-plan: lite
+      service-name: incidentmanagement_jackyliu-logs
+  - type: org.cloudfoundry.managed-service
+    name: incidentmanagement_jackyliu-service-html5-apps-repo-host
+    parameters:
+      service: html5-apps-repo
+      service-plan: app-host
+      service-name: incidentmanagement_jackyliu-html5-apps-repo-host
